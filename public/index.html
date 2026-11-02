@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Casino Wear — połącz zegarek</title><link rel="stylesheet" href="/activate/style.css"><script src="/activate/activate.js" defer></script></head>
+<body><main><span class="eyebrow">CASINO WEAR · WIRTUALNE ŻETONY</span><h1>Połącz swój zegarek</h1><p>Wpisz kod widoczny na własnym zegarku. Zatwierdzenie zaloguje go na Twoje konto.</p>
+<form id="form"><label>Kod zegarka<input name="code" placeholder="ABCD-EFGH" autocomplete="off" maxlength="9" required></label>
+<label>Nick<input name="nick" autocomplete="username" maxlength="12" required></label>
+<label>Hasło<input name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
+<label>Operacja<select name="mode"><option value="login">Zaloguj istniejące konto</option><option value="register">Utwórz nowe konto</option></select></label>
+<details><summary>Zmiana hasła istniejącego konta</summary><label>Nowe hasło (opcjonalnie)<input name="newPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128"></label><p>Zmiana hasła wyloguje pozostałe zegarki.</p></details>
+<button type="submit">Zatwierdź mój zegarek</button><p id="status" role="status" aria-live="polite"></p></form>
+<p class="fine">Nowe konto: nick 3–12 znaków A–Z, cyfr lub _, hasło co najmniej 10 znaków. Stare konto zachowuje saldo. Paruj wyłącznie kod z własnego urządzenia. Żetony nie mają wartości pieniężnej.</p></main></body></html>
