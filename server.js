@@ -9,12 +9,11 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Połączenie z bazą PostgreSQL na Render.com
+const MOJ_LINK_DO_BAZY = "postgresql://roulette_server_users_2vk2_user:0ksN5VhQEVLIoXrZfJAnf4QsHgWcFQHS@dpg-dbjt22k9v7es73b2n5r0-a.oregon-postgres.render.com/roulette_server_users_2vk2";
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost')
-    ? { rejectUnauthorized: false }
-    : false
+  connectionString: process.env.DATABASE_URL || MOJ_LINK_DO_BAZY,
+  ssl: { rejectUnauthorized: false }
 });
 
 // Automatyczne tworzenie tabeli graczy przy starcie serwera
