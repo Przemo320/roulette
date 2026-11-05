@@ -1,10 +1,121 @@
 <!doctype html>
-<html lang="pl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Casino Wear — połącz zegarek</title><link rel="stylesheet" href="/activate/style.css"><script src="/activate/activate.js" defer></script></head>
-<body><main><span class="eyebrow">CASINO WEAR · WIRTUALNE ŻETONY</span><h1>Połącz swój zegarek</h1><p>Wpisz kod widoczny na własnym zegarku. Zatwierdzenie zaloguje go na Twoje konto.</p>
-<form id="form"><label>Kod zegarka<input name="code" placeholder="ABCD-EFGH" autocomplete="off" maxlength="9" required></label>
-<label>Nick<input name="nick" autocomplete="username" maxlength="12" required></label>
-<label>Hasło<input name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
-<label>Operacja<select name="mode"><option value="login">Zaloguj istniejące konto</option><option value="register">Utwórz nowe konto</option></select></label>
-<details><summary>Zmiana hasła istniejącego konta</summary><label>Nowe hasło (opcjonalnie)<input name="newPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128"></label><p>Zmiana hasła wyloguje pozostałe zegarki.</p></details>
-<button type="submit">Zatwierdź mój zegarek</button><p id="status" role="status" aria-live="polite"></p></form>
-<p class="fine">Nowe konto: nick 3–12 znaków A–Z, cyfr lub _, hasło co najmniej 10 znaków. Stare konto zachowuje saldo. Paruj wyłącznie kod z własnego urządzenia. Żetony nie mają wartości pieniężnej.</p></main></body></html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Casino Wear — Panel Główny, Parowanie i Ewenty</title>
+  <link rel="stylesheet" href="/activate/style.css">
+  <script src="/activate/activate.js" defer></script>
+</head>
+<body>
+  <div class="layout">
+    <!-- KARTA 1: AKTYWNY EWENT NA ŻYWO -->
+    <section class="card event-banner" id="activeEventSection" hidden>
+      <span class="eyebrow">AKTYWNY EWENT SPECJALNY</span>
+      <h2 id="liveEventTitle">Złoty Weekend</h2>
+      <p id="liveEventDesc"></p>
+      <div class="event-badges">
+        <span class="badge" id="liveEventMult">Mnożnik ×1.5</span>
+        <span class="badge" id="liveEventBonus">Bonus dzienny: 2000 $</span>
+        <span class="badge timer" id="liveEventTimer">Pozostało: --</span>
+      </div>
+      <img id="liveEventPoster" class="poster-preview" alt="Plakat ewentu" hidden>
+    </section>
+
+    <!-- KARTA 2: PAROWANIE ZEGARKA -->
+    <main class="card">
+      <span class="eyebrow">CASINO WEAR · AUTORYZACJA ZEGARKA</span>
+      <h1>Połącz swój zegarek</h1>
+      <p>Wpisz 8-znakowy kod widoczny na ekranie zegarka, aby zalogować go na swoje konto.</p>
+      <form id="form">
+        <label>Kod z zegarka
+          <input name="code" placeholder="ABCD-EFGH" autocomplete="off" maxlength="9" required>
+        </label>
+        <label>Nick gracza (3–12 znaków)
+          <input name="nick" autocomplete="username" maxlength="12" required>
+        </label>
+        <label>Hasło (min. 10 znaków dla nowego konta)
+          <input name="password" type="password" autocomplete="current-password" maxlength="128" required>
+        </label>
+        <label>Operacja
+          <select name="mode">
+            <option value="login">Zaloguj istniejące konto</option>
+            <option value="register">Utwórz nowe konto</option>
+          </select>
+        </label>
+        <details>
+          <summary>Zmiana hasła istniejącego konta</summary>
+          <label>Nowe hasło (opcjonalnie)
+            <input name="newPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128">
+          </label>
+        </details>
+        <button type="submit">Zatwierdź mój zegarek</button>
+        <p id="status" role="status" aria-live="polite"></p>
+      </form>
+    </main>
+
+    <!-- KARTA 3: STEROWANIE LOSOWOŚCIĄ (RNG) I KREATOR EWENTÓW -->
+    <section class="card">
+      <span class="eyebrow">PANEL ADMINISTRATORA SERWERA</span>
+      <h2>Sterowanie Losowością i Ewentami</h2>
+      <p>Ujemne wartości zwiększają przewagę kasyna (trudniej wygrać), a dodatnie dają graczom większą szansę na wygraną.</p>
+
+      <form id="configForm">
+        <h3>1. Modyfikacja Losowości Gier (RNG Bias)</h3>
+        <label>Ruletka (<span id="valRoulette">0</span>%)
+          <input type="range" id="rngRoulette" min="-80" max="80" step="5" value="0">
+        </label>
+        <label>Automat 777 (<span id="valSlots">0</span>%)
+          <input type="range" id="rngSlots" min="-80" max="80" step="5" value="0">
+        </label>
+        <label>Kości (<span id="valDice">0</span>%)
+          <input type="range" id="rngDice" min="-80" max="80" step="5" value="0">
+        </label>
+        <label>Karty: Blackjack, Hi-Lo, Baccarat (<span id="valCards">0</span>%)
+          <input type="range" id="rngCards" min="-80" max="80" step="5" value="0">
+        </label>
+        <label>Crash, Plinko, Miny i Koło Fortuny (<span id="valSpecial">0</span>%)
+          <input type="range" id="rngSpecial" min="-80" max="80" step="5" value="0">
+        </label>
+
+        <hr class="sep">
+
+        <h3>2. Ustaw Ewent i Plakat (widoczny codziennie w grze)</h3>
+        <label>Nazwa Ewentu
+          <input id="evTitle" placeholder="np. NOC MILIONERÓW VIP" maxlength="40">
+        </label>
+        <label>Opis Ewentu (widoczny na zegarku)
+          <input id="evDesc" placeholder="np. Wygrane powiększone o 50% oraz 3000$ na start dnia!" maxlength="140">
+        </label>
+        <div class="row-2">
+          <label>Czas trwania (godziny)
+            <input id="evHours" type="number" min="1" max="720" value="24">
+          </label>
+          <label>Mnożnik wygranych
+            <select id="evMult">
+              <option value="1.0">×1.0 (Standard)</option>
+              <option value="1.25">×1.25 (+25%)</option>
+              <option value="1.5">×1.50 (+50%)</option>
+              <option value="2.0">×2.00 (Podwójne!)</option>
+              <option value="3.0">×3.00 (Potrójne!)</option>
+            </select>
+          </label>
+        </div>
+        <label>Dzienny Bonus Żetonów podczas ewentu
+          <input id="evBonus" type="number" min="500" max="50000" step="500" value="2000">
+        </label>
+        <label>Zdjęcie / Plakat Ewentu (wyświetli się na stronie i na zegarku)
+          <input id="evPosterInput" type="file" accept="image/*">
+        </label>
+        <img id="posterDraftPreview" class="poster-preview" alt="Podgląd plakatu" hidden>
+
+        <div class="btn-row">
+          <button type="submit">Zapisz Losowość i Uruchom Ewent</button>
+          <button type="button" id="clearEventBtn" class="secondary">Wyłącz Ewent</button>
+        </div>
+        <p id="configStatus" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </div>
+</body>
+</html>
