@@ -95,3 +95,4 @@ button:disabled { opacity: .6; }
   margin-top: 12px;
 }
 #status, #configStatus { color: #e3c37b; font-weight: 600; }
+[hidden] { display: none !important; }

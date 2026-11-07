@@ -6,6 +6,8 @@ const { randomBytes, randomInt, randomUUID } = require('node:crypto');
 const path = require('node:path');
 const games = require('./games');
 const passwords = require('./passwords');
+const { createAdminAuth } = require('./admin-auth');
+const { validatePoster } = require('./posters');
 const { fail } = games;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -30,7 +32,7 @@ async function transaction(pool, fn) {
   }
 }
 
-async function getServerConfig(cOrPool) {
+async function getServerConfig(cOrPool, forAdmin = false) {
   const { rows } = await cOrPool.query('SELECT rng_settings, event_data FROM casino_config WHERE id=1');
   const row = rows[0] || { rng_settings: {}, event_data: {} };
   const ev = row.event_data || {};
@@ -41,10 +43,10 @@ async function getServerConfig(cOrPool) {
       active: isEventActive,
       title: ev.title || '',
       description: ev.description || '',
-      winMultiplier: isEventActive ? (Number(ev.winMultiplier) || 1.0) : 1.0,
-      dailyBonus: isEventActive ? (Number(ev.dailyBonus) || 1000) : 1000,
+      winMultiplier: (isEventActive || forAdmin) ? (Number(ev.winMultiplier) || 1.0) : 1.0,
+      dailyBonus: (isEventActive || forAdmin) ? (Number(ev.dailyBonus) || 1000) : 1000,
       expiresAt: Number(ev.expiresAt) || 0,
-      posterBase64: isEventActive ? (ev.posterBase64 || '') : ''
+      posterBase64: (isEventActive || forAdmin) ? (ev.posterBase64 || '') : ''
     }
   };
 }
@@ -123,63 +125,93 @@ function createApp(pool, options = {}) {
   });
 
   app.get('/ping', (_, res) => res.type('text/plain').send('OK'));
-  app.get('/', (_, res) => res.redirect('/activate/'));
+  const publicDirectory = path.join(__dirname, '../public');
+  app.get('/', (_, res) => res.set('Cache-Control', 'no-store').sendFile(path.join(publicDirectory, 'admin/admin.html')));
+  app.use('/admin-assets', express.static(path.join(publicDirectory, 'admin'), { index: false }));
   app.get('/health', async (_, res) => {
     await pool.query('SELECT 1');
     res.json({ ok: true, version: 2 });
   });
-  app.use('/activate', express.static(path.join(__dirname, '../public'), { index: 'index.html' }));
+  app.get(['/activate', '/activate/'], (_, res) => res.sendFile(path.join(publicDirectory, 'index.html')));
+  app.get('/activate/activate.js', (_, res) => res.sendFile(path.join(publicDirectory, 'activate.js')));
+  app.get('/activate/style.css', (_, res) => res.sendFile(path.join(publicDirectory, 'style.css')));
+
+  const admin = createAdminAuth(pool, { publicUrl, adminUsername: options.adminUsername, adminPassword: options.adminPassword });
+  app.use('/api/admin', admin.router);
 
   app.post(['/sync', '/login'], (_, res) =>
     res.status(410).json({ ok: false, error: 'Zainstaluj Casino Wear v2. Stary protokół jest wyłączony.' })
   );
 
-  // Publiczny odczyt i zapis konfiguracji losowości oraz Ewentu ze strony głównej
+  // Public event data is consumed by watches. RNG controls belong to the admin API.
   app.get('/api/public/config', async (_, res) => {
     const cfg = await getServerConfig(pool);
-    res.json({ ok: true, ...cfg });
+    res.json({ ok: true, event: cfg.event });
   });
 
-  app.post('/api/public/config', authLimit, async (req, res) => {
-    const { rngSettings, event } = req.body || {};
-    const current = await getServerConfig(pool);
+  app.get('/api/admin/config', admin.requireAdmin, async (_, res) => {
+    res.json({ ok: true, ...(await getServerConfig(pool, true)) });
+  });
 
-    const clampBias = (v) => Math.max(-80, Math.min(80, Math.round(Number(v) || 0)));
-    const nextRng = rngSettings ? {
-      rouletteBias: clampBias(rngSettings.rouletteBias),
-      slotsBias: clampBias(rngSettings.slotsBias),
-      diceBias: clampBias(rngSettings.diceBias),
-      cardsBias: clampBias(rngSettings.cardsBias),
-      specialBias: clampBias(rngSettings.specialBias)
-    } : current.rngSettings;
-
-    let nextEvent = current.event;
-    if (event) {
-      if (event.clear) {
-        nextEvent = { title: '', description: '', winMultiplier: 1.0, dailyBonus: 1000, expiresAt: 0, posterBase64: '' };
-      } else {
-        const durationHours = Math.max(1, Math.min(720, Number(event.durationHours) || 24));
-        const expiresAt = event.expiresAt ? Number(event.expiresAt) : (Date.now() + durationHours * 3600 * 1000);
-        const poster = typeof event.posterBase64 === 'string' && event.posterBase64.length < 1_500_000
-          ? event.posterBase64
-          : (current.event.posterBase64 || '');
-        nextEvent = {
-          title: String(event.title || 'EWENT SPECJALNY').slice(0, 40),
-          description: String(event.description || 'Bonusowe mnożniki w grach!').slice(0, 140),
-          winMultiplier: Math.max(1.0, Math.min(5.0, Number(event.winMultiplier) || 1.25)),
-          dailyBonus: Math.max(500, Math.min(50000, Math.round(Number(event.dailyBonus) || 2000))),
-          expiresAt,
-          posterBase64: poster
-        };
+  async function saveAdminConfig(req, res) {
+    const body = req.body;
+    if (!body || typeof body !== 'object' || Array.isArray(body) ||
+        (!Object.hasOwn(body, 'rngSettings') && !Object.hasOwn(body, 'event'))) fail('Prześlij ustawienia gier lub wydarzenia.');
+    const numberInRange = (value, fallback, min, max, integer = false) => {
+      const n = value === undefined ? fallback : Number(value);
+      if (!Number.isFinite(n)) fail('Podaj prawidłową wartość liczbową.');
+      return Math.max(min, Math.min(max, integer ? Math.round(n) : n));
+    };
+    const saved = await transaction(pool, async c => {
+      await c.query('SELECT id FROM casino_config WHERE id=1 FOR UPDATE');
+      const current = await getServerConfig(c, true);
+      const nextRng = { ...current.rngSettings };
+      if (Object.hasOwn(body, 'rngSettings')) {
+        const rng = body.rngSettings;
+        if (!rng || typeof rng !== 'object' || Array.isArray(rng)) fail('Nieprawidłowe ustawienia losowości.');
+        for (const key of ['rouletteBias','slotsBias','diceBias','cardsBias','specialBias']) {
+          nextRng[key] = numberInRange(rng[key], Number(current.rngSettings[key]) || 0, -80, 80, true);
+        }
       }
-    }
+      let nextEvent = { ...current.event };
+      delete nextEvent.active;
+      if (Object.hasOwn(body, 'event')) {
+        const event = body.event;
+        if (!event || typeof event !== 'object' || Array.isArray(event)) fail('Nieprawidłowe wydarzenie.');
+        if (event.clear === true) {
+          nextEvent = { title:'', description:'', winMultiplier:1, dailyBonus:1000, expiresAt:0, posterBase64:'' };
+        } else {
+          const title = event.title === undefined ? current.event.title || 'EWENT SPECJALNY' : event.title;
+          const description = event.description === undefined ? current.event.description : event.description;
+          if (typeof title !== 'string' || !title.trim() || title.length > 40 ||
+              typeof description !== 'string' || description.length > 140) fail('Nazwa: 1–40 znaków, opis: maksymalnie 140 znaków.');
+          let expiresAt = current.event.expiresAt;
+          if (event.durationHours !== undefined) {
+            const hours = numberInRange(event.durationHours, 24, 1, 720);
+            expiresAt = Date.now() + hours * 3600 * 1000;
+          } else if (event.expiresAt !== undefined) {
+            expiresAt = Number(event.expiresAt);
+            if (!Number.isFinite(expiresAt) || expiresAt <= Date.now() || expiresAt > Date.now() + 720 * 3600 * 1000) {
+              fail('Podaj prawidłowy termin zakończenia wydarzenia.');
+            }
+          } else if (expiresAt <= Date.now()) expiresAt = Date.now() + 24 * 3600 * 1000;
+          nextEvent = {
+            title: title.trim(), description: description.trim(), expiresAt,
+            winMultiplier: numberInRange(event.winMultiplier, current.event.winMultiplier, 1, 5),
+            dailyBonus: numberInRange(event.dailyBonus, current.event.dailyBonus, 500, 50000, true),
+            posterBase64: Object.hasOwn(event, 'posterBase64') ? validatePoster(event.posterBase64) : current.event.posterBase64
+          };
+        }
+      }
+      await c.query('UPDATE casino_config SET rng_settings=$1,event_data=$2,updated_at=NOW() WHERE id=1', [nextRng, nextEvent]);
+      return getServerConfig(c, true);
+    });
+    res.set('Cache-Control', 'no-store').json({ ok: true, message: 'Zmiany zostały zapisane.', ...saved });
+  }
 
-    await pool.query(
-      'UPDATE casino_config SET rng_settings=$1, event_data=$2, updated_at=NOW() WHERE id=1',
-      [nextRng, nextEvent]
-    );
-    res.json({ ok: true, message: 'Zapisano ustawienia losowości i ewentu!', ...(await getServerConfig(pool)) });
-  });
+  app.post('/api/admin/config', admin.requireAdmin, admin.requireCsrf, saveAdminConfig);
+  // The previous write URL is protected as well; it cannot bypass admin authentication.
+  app.post('/api/public/config', admin.requireAdmin, admin.requireCsrf, saveAdminConfig);
 
   app.post('/api/device/start', authLimit, async (_, res) => {
     const deviceSecret = randomBytes(32).toString('hex');
@@ -310,7 +342,6 @@ function createApp(pool, options = {}) {
           bonusAmount: cfg.event.dailyBonus,
           stats,
           event: cfg.event,
-          rngSettings: cfg.rngSettings,
           // A profile refresh must not start/resume a game in the UI.
           // Resuming requires an explicit choice in the watch menu.
           round: req.query.resume === '1' && a ? games.publicRound(a.id, a.state) : null,

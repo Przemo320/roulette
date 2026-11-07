@@ -21,6 +21,7 @@ async function main(){
     try{
       await pool.query('DELETE FROM casino_devices WHERE expires_at<NOW()');
       await pool.query('DELETE FROM casino_sessions WHERE expires_at<NOW()');
+      await pool.query('DELETE FROM casino_admin_sessions WHERE expires_at<NOW()');
     }catch(err){console.error('Cleanup:',err.code||err.name);}
   },60*60000);timer.unref();
   async function stop(){clearInterval(timer);server.close(async()=>{await pool.end();process.exit(0);});setTimeout(()=>process.exit(1),10000).unref();}

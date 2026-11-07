@@ -43,3 +43,12 @@ CREATE TABLE IF NOT EXISTS casino_config (
 );
 
 INSERT INTO casino_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS casino_admin_sessions (
+ token_hash TEXT PRIMARY KEY,
+ username TEXT NOT NULL,
+ credential_hash TEXT NOT NULL,
+ expires_at TIMESTAMPTZ NOT NULL,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS casino_admin_session_expiry ON casino_admin_sessions(expires_at);
