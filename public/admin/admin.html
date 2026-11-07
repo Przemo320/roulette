@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Casino Wear — Panel administratora</title>
+  <link rel="stylesheet" href="/admin-assets/admin.css">
+  <script src="/admin-assets/admin-panel.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Casino Wear — strona główna">
+      <span class="brand-icon" aria-hidden="true">CW</span>
+      <span>CASINO WEAR<small>PANEL ADMINISTRATORA</small></span>
+    </a>
+    <nav aria-label="Nawigacja">
+      <a href="/activate/" class="activation-link">Aktywuj zegarek <span aria-hidden="true">↗</span></a>
+      <span id="adminUser" class="user-label" hidden></span>
+      <button id="logoutBtn" class="button-quiet" type="button" hidden>Wyloguj</button>
+    </nav>
+  </header>
+
+  <p id="sessionNotice" class="session-notice" role="status">Sprawdzanie sesji…</p>
+
+  <main>
+    <section id="loginSection" class="login-wrap" hidden>
+      <div class="login-card">
+        <span class="eyebrow">DOSTĘP ADMINISTRATORA</span>
+        <h1>Zarządzaj<br>swoim kasynem.</h1>
+        <p class="muted">Zaloguj się, aby zmieniać losowość gier, uruchamiać wydarzenia i dodawać plakaty.</p>
+        <form id="loginForm">
+          <label for="adminUsername">Login administratora</label>
+          <input id="adminUsername" name="username" autocomplete="username" value="admin" maxlength="64" required>
+          <label for="adminPassword">Hasło</label>
+          <input id="adminPassword" name="password" type="password" autocomplete="current-password" maxlength="128" required>
+          <button id="loginBtn" type="submit" class="button-gold full-width">Zaloguj do panelu <span aria-hidden="true">→</span></button>
+          <p id="loginStatus" class="form-status" role="status" aria-live="polite"></p>
+        </form>
+        <div class="login-footer">Chcesz połączyć zegarek? <a href="/activate/">Przejdź do aktywacji</a></div>
+      </div>
+      <p class="login-note">Ustawienia serwera są dostępne wyłącznie dla administratora.</p>
+    </section>
+
+    <div id="adminPanel" class="dashboard" hidden>
+      <div class="page-heading">
+        <div><span class="eyebrow">CENTRUM STEROWANIA</span><h1>Ustawienia serwera</h1></div>
+        <span class="session-badge"><i aria-hidden="true"></i> Sesja administratora</span>
+      </div>
+      <p id="globalStatus" class="form-status" role="status" aria-live="polite"></p>
+
+      <section class="event-summary" aria-label="Stan wydarzenia">
+        <div class="event-state-icon" aria-hidden="true">✦</div>
+        <div class="event-summary-copy">
+          <span id="eventStateLabel" class="eyebrow">BRAK AKTYWNEGO WYDARZENIA</span>
+          <h2 id="liveEventTitle">Przygotuj kolejne wydarzenie</h2>
+          <p id="liveEventDesc" class="muted">Wydarzenie pojawi się na zegarkach po zapisaniu.</p>
+        </div>
+        <div id="liveEventDetails" class="event-summary-details" hidden>
+          <span id="liveEventMult" class="badge"></span>
+          <span id="liveEventBonus" class="badge"></span>
+          <span id="liveEventTimer" class="event-timer"></span>
+        </div>
+      </section>
+
+      <div class="settings-grid">
+        <section class="card rng-card">
+          <div class="section-number">01</div>
+          <h2>Losowość gier</h2>
+          <p class="muted">Ujemne wartości zwiększają przewagę kasyna. Dodatnie sprzyjają graczom.</p>
+          <form id="rngForm">
+            <div class="slider-row"><label for="rngRoulette">Ruletka</label><output id="valRoulette" for="rngRoulette">0</output><input id="rngRoulette" type="range" min="-80" max="80" step="5" value="0"></div>
+            <div class="slider-row"><label for="rngSlots">Automat 777</label><output id="valSlots" for="rngSlots">0</output><input id="rngSlots" type="range" min="-80" max="80" step="5" value="0"></div>
+            <div class="slider-row"><label for="rngDice">Kości</label><output id="valDice" for="rngDice">0</output><input id="rngDice" type="range" min="-80" max="80" step="5" value="0"></div>
+            <div class="slider-row"><label for="rngCards">Karty</label><output id="valCards" for="rngCards">0</output><input id="rngCards" type="range" min="-80" max="80" step="5" value="0"></div>
+            <div class="slider-row"><label for="rngSpecial">Crash, Plinko, Miny i Koło</label><output id="valSpecial" for="rngSpecial">0</output><input id="rngSpecial" type="range" min="-80" max="80" step="5" value="0"></div>
+            <div class="range-legend"><span>Przewaga kasyna</span><span>Szczęście gracza</span></div>
+            <button id="saveRngBtn" type="submit" class="button-gold full-width">Zapisz losowość</button>
+            <p id="rngStatus" class="form-status" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="card event-card">
+          <div class="section-number">02</div>
+          <h2>Wydarzenie i plakat</h2>
+          <p class="muted">Ustaw bonusy i wybierz obraz, który zobaczą gracze na zegarkach.</p>
+          <form id="eventForm">
+            <label for="evTitle">Nazwa wydarzenia</label>
+            <input id="evTitle" maxlength="40" placeholder="np. Złoty weekend" required>
+            <label for="evDesc">Opis</label>
+            <input id="evDesc" maxlength="140" placeholder="Krótka wiadomość dla graczy">
+            <div class="field-row">
+              <div><label for="evHours">Czas trwania (godz.)</label><input id="evHours" type="number" min="1" max="720" step="1" value="24" required></div>
+              <div><label for="evMult">Mnożnik wygranych</label><select id="evMult"><option value="1">×1 — standard</option><option value="1.25">×1,25</option><option value="1.5">×1,5</option><option value="2">×2</option><option value="3">×3</option><option value="4">×4</option><option value="5">×5</option></select></div>
+            </div>
+            <label for="evBonus">Dzienny bonus żetonów</label>
+            <input id="evBonus" type="number" min="500" max="50000" step="1" value="2000" required>
+
+            <div class="poster-section">
+              <label for="evPosterInput" class="upload-label"><span class="upload-icon" aria-hidden="true">↑</span><strong>Wybierz GIF lub zdjęcie</strong><small>GIF zachowuje animację · plakat w kwadracie</small></label>
+              <input id="evPosterInput" type="file" accept="image/gif,image/jpeg,image/png,image/webp">
+              <p class="field-hint">GIF: do 1 MB i 1024 × 1024 px. Zdjęcia zostaną dopasowane do zegarka.</p>
+              <div id="posterPreviewBox" class="poster-preview-box" hidden><img id="posterDraftPreview" alt="Podgląd plakatu wydarzenia"><span id="posterMeta" class="poster-caption"></span></div>
+              <button id="removePosterBtn" class="button-quiet remove-poster" type="button" hidden>Usuń plakat</button>
+            </div>
+
+            <div class="event-actions"><button id="saveEventBtn" type="submit" class="button-gold">Zapisz i uruchom wydarzenie</button><button id="clearEventBtn" type="button" class="button-outline">Wyłącz wydarzenie</button></div>
+            <p id="eventStatus" class="form-status" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+      </div>
+    </div>
+  </main>
+  <footer class="site-footer">CASINO WEAR <span>•</span> Zarządzanie serwerem</footer>
+  <noscript><p class="session-notice">Włącz JavaScript, aby korzystać z panelu.</p></noscript>
+</body>
+</html>
