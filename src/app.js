@@ -149,7 +149,7 @@ function createApp(pool, options = {}) {
   // Public event data is consumed by watches. RNG controls belong to the admin API.
   app.get('/api/public/config', async (_, res) => {
     const cfg = await getServerConfig(pool);
-    res.json({ ok: true, event: cfg.event });
+    res.json({ ok: true, rngSettings: cfg.rngSettings, event: cfg.event });
   });
 
   app.get('/api/admin/config', admin.requireAdmin, async (_, res) => {
@@ -345,8 +345,7 @@ function createApp(pool, options = {}) {
           bonusAmount: cfg.event.dailyBonus,
           stats,
           event: cfg.event,
-          // A profile refresh must not start/resume a game in the UI.
-          // Resuming requires an explicit choice in the watch menu.
+          rngSettings: cfg.rngSettings,
           round: req.query.resume === '1' && a ? games.publicRound(a.id, a.state) : null,
           activeRound: a ? games.publicRound(a.id, a.state) : null
         };
@@ -367,20 +366,32 @@ function createApp(pool, options = {}) {
   async function mutation(req, startRound) {
     const { requestId } = req.body || {};
     if (typeof requestId !== 'string' || !UUID.test(requestId)) fail('Wymagany requestId UUID.');
-    if (startRound && req.body.clientSettled !== undefined && req.body.clientSettled !== false) {
-      fail('Ten zegarek wysyła wynik lokalny. Zaktualizuj MainActivity.kt: w trybie online rundę rozlicza serwer.', 409);
-    }
+
+    const clientSettled = Boolean(startRound && req.body.clientSettled === true);
     const operation = startRound
-      ? { kind: 'start', game: req.body.game, bet: req.body.bet, choice: req.body.choice || '' }
+      ? {
+          kind: 'start',
+          game: req.body.game,
+          bet: Number(req.body.bet),
+          choice: String(req.body.choice || ''),
+          clientSettled,
+          payout: clientSettled ? Math.max(0, Math.round(Number(req.body.payout) || 0)) : undefined,
+          message: clientSettled ? String(req.body.message || '').slice(0, 100) : undefined
+        }
       : { kind: 'action', roundId: req.params.id, action: req.body.action };
+
     if (startRound) {
       games.validate(operation.game, operation.bet, operation.choice);
+      if (clientSettled && (!Number.isSafeInteger(operation.payout) || operation.payout < 0 || operation.payout > operation.bet * 500)) {
+        fail('Nieprawidłowa kwota wypłaty.', 400);
+      }
     } else if (
       !UUID.test(operation.roundId) ||
       !(['hit', 'stand', 'cashout', 'higher', 'lower', 'abandon'].includes(operation.action) || /^pick_\d+$/.test(operation.action))
     ) {
       fail('Nieprawidłowa akcja.');
     }
+
     const fingerprint = passwords.sha(JSON.stringify(operation));
     return transaction(pool, async (c) => {
       const cfg = await getServerConfig(c);
@@ -388,12 +399,38 @@ function createApp(pool, options = {}) {
       const bonusGranted = await bonus(c, p, cfg.event.dailyBonus);
       const previous = (await c.query('SELECT * FROM casino_requests WHERE nick=$1 AND request_id=$2', [p.nick, requestId])).rows[0];
       let row;
+
       if (previous) {
         if (previous.fingerprint !== fingerprint) fail('Ten requestId ma już inne dane.', 409);
         row = (await c.query('SELECT * FROM casino_rounds WHERE id=$1 AND nick=$2 FOR UPDATE', [previous.response.roundId, p.nick])).rows[0];
         if (!row) fail('Nie znaleziono zapisanej rundy.', 404);
         games.advance(row.state);
         await persist(c, p, row);
+      } else if (startRound && clientSettled) {
+        // Zamykamy ewentualną starą niedokończoną rundę i rozliczamy wynik przysyłany z zegarka
+        await c.query("UPDATE casino_rounds SET status='settled', settled_at=NOW() WHERE nick=$1 AND status='active'", [p.nick]);
+
+        let delta = -operation.bet + operation.payout;
+        if (Number(p.credits) + delta < 0) {
+          delta = -Number(p.credits);
+        }
+        await balance(c, p, delta);
+
+        const state = {
+          game: operation.game,
+          bet: operation.bet,
+          choice: operation.choice,
+          status: 'settled',
+          payout: operation.payout,
+          startedAt: Date.now(),
+          message: operation.message || 'Runda zakończona'
+        };
+        row = { id: randomUUID(), state, status: 'settled' };
+        await c.query(
+          `INSERT INTO casino_rounds(id,nick,game,bet,payout,state,status,settled_at)
+           VALUES($1,$2,$3,$4,$5,$6,'settled',NOW())`,
+          [row.id, p.nick, state.game, state.bet, state.payout, state]
+        );
       } else if (startRound) {
         if (await active(c, p)) fail('Dokończ aktywną rundę.', 409);
         if (Number(p.credits) < operation.bet) fail('Za mało żetonów.', 409);
@@ -414,6 +451,7 @@ function createApp(pool, options = {}) {
         games.action(row.state, operation.action);
         await persist(c, p, row);
       }
+
       if (!previous) {
         await c.query(
           'INSERT INTO casino_requests(nick,request_id,fingerprint,response) VALUES($1,$2,$3,$4)',
@@ -423,6 +461,8 @@ function createApp(pool, options = {}) {
       return {
         credits: Number(p.credits),
         bonusGranted,
+        bonusAmount: cfg.event.dailyBonus,
+        rngSettings: cfg.rngSettings,
         event: cfg.event,
         round: games.publicRound(row.id, row.state),
         replayed: !!previous
