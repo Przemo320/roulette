@@ -266,11 +266,18 @@ function start(game, bet, choice, now = Date.now(), rng = randomInt, runtimeCfg 
 }
 
 function advance(s, now = Date.now()) {
-  if (s.status === 'active' && now >= s.expiresAt) {
+  if (s.status !== 'active') return s;
+  // Old records without a deadline must not block an account indefinitely.
+  if (!Number.isFinite(Number(s.expiresAt))) {
+    const started = Number(s.startedAt);
+    s.expiresAt = Number.isFinite(started) && started > 0 ? started + 15 * 60 * 1000 : now;
+  }
+  if (now >= Number(s.expiresAt)) {
     return settle(
       s,
       0,
-      s.game === 'crash' ? `Koniec przy ×${s.crashAt.toFixed(2)}` : 'Upłynęło 15 minut — runda zakończona',
+      s.game === 'crash' && Number.isFinite(s.crashAt)
+        ? `Koniec przy ×${s.crashAt.toFixed(2)}` : 'Upłynął czas — runda zakończona',
       s.eventMult || 1.0
     );
   }
@@ -280,6 +287,9 @@ function advance(s, now = Date.now()) {
 function action(s, actionName, now = Date.now()) {
   advance(s, now);
   if (s.status === 'settled') return s;
+  if (actionName === 'abandon') {
+    return settle(s, 0, 'Runda zakończona przez gracza. Stawka została utracona.');
+  }
   const eventMult = s.eventMult || 1.0;
 
   if (s.game === 'crash') {

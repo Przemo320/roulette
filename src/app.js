@@ -23,7 +23,7 @@ async function transaction(pool, fn) {
     await c.query('COMMIT');
     return v;
   } catch (e) {
-    await c.query('ROLLBACK');
+    try { await c.query('ROLLBACK'); } catch (_) { /* Preserve the original error. */ }
     throw e;
   } finally {
     c.release();
@@ -106,7 +106,17 @@ function createApp(pool, options = {}) {
     }
   }));
   app.use(express.json({ limit: '2mb' }));
-  app.use('/api', rateLimit({ windowMs: 60000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false }));
+  app.use('/api', (req, res, next) => {
+    const origin = req.get('origin');
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && origin && origin !== new URL(publicUrl).origin) {
+      fail('Żądanie pochodzi z innej strony.', 403);
+    }
+    next();
+  });
+  app.use('/api', rateLimit({
+    windowMs: 60000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false,
+    message: { ok: false, error: 'Za dużo żądań. Spróbuj ponownie za chwilę.' }
+  }));
   const authLimit = rateLimit({
     windowMs: 15 * 60000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false,
     message: { error: 'Za dużo prób. Spróbuj później.' }
@@ -285,7 +295,6 @@ function createApp(pool, options = {}) {
         const p = await playerLock(c, req.nick);
         const bonusGranted = await bonus(c, p, cfg.event.dailyBonus);
         const a = await active(c, p);
-        const last = a || (await c.query('SELECT * FROM casino_rounds WHERE nick=$1 ORDER BY created_at DESC,id DESC LIMIT 1', [p.nick])).rows[0];
         const stats = (
           await c.query(
             `SELECT COUNT(*)::integer AS rounds,COALESCE(SUM(bet),0)::text AS wagered,
@@ -302,7 +311,10 @@ function createApp(pool, options = {}) {
           stats,
           event: cfg.event,
           rngSettings: cfg.rngSettings,
-          round: last ? games.publicRound(last.id, last.state) : null
+          // A profile refresh must not start/resume a game in the UI.
+          // Resuming requires an explicit choice in the watch menu.
+          round: req.query.resume === '1' && a ? games.publicRound(a.id, a.state) : null,
+          activeRound: a ? games.publicRound(a.id, a.state) : null
         };
       })
     )
@@ -321,6 +333,9 @@ function createApp(pool, options = {}) {
   async function mutation(req, startRound) {
     const { requestId } = req.body || {};
     if (typeof requestId !== 'string' || !UUID.test(requestId)) fail('Wymagany requestId UUID.');
+    if (startRound && req.body.clientSettled !== undefined && req.body.clientSettled !== false) {
+      fail('Ten zegarek wysyła wynik lokalny. Zaktualizuj MainActivity.kt: w trybie online rundę rozlicza serwer.', 409);
+    }
     const operation = startRound
       ? { kind: 'start', game: req.body.game, bet: req.body.bet, choice: req.body.choice || '' }
       : { kind: 'action', roundId: req.params.id, action: req.body.action };
@@ -328,7 +343,7 @@ function createApp(pool, options = {}) {
       games.validate(operation.game, operation.bet, operation.choice);
     } else if (
       !UUID.test(operation.roundId) ||
-      !(['hit', 'stand', 'cashout', 'higher', 'lower'].includes(operation.action) || /^pick_\d+$/.test(operation.action))
+      !(['hit', 'stand', 'cashout', 'higher', 'lower', 'abandon'].includes(operation.action) || /^pick_\d+$/.test(operation.action))
     ) {
       fail('Nieprawidłowa akcja.');
     }
@@ -342,6 +357,7 @@ function createApp(pool, options = {}) {
       if (previous) {
         if (previous.fingerprint !== fingerprint) fail('Ten requestId ma już inne dane.', 409);
         row = (await c.query('SELECT * FROM casino_rounds WHERE id=$1 AND nick=$2 FOR UPDATE', [previous.response.roundId, p.nick])).rows[0];
+        if (!row) fail('Nie znaleziono zapisanej rundy.', 404);
         games.advance(row.state);
         await persist(c, p, row);
       } else if (startRound) {
