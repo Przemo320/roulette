@@ -4,17 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Casino Wear — Panel administratora</title>
-  <link rel="stylesheet" href="/admin-assets/admin.css">
+  <link rel="stylesheet" href="/assets/site.css">
   <script src="/admin-assets/admin-panel.js" defer></script>
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="/" aria-label="Casino Wear — strona główna">
       <span class="brand-icon" aria-hidden="true">CW</span>
-      <span>CASINO WEAR<small>PANEL ADMINISTRATORA</small></span>
+      <span>CASINO WEAR<small>PANEL SERWERA</small></span>
     </a>
     <nav aria-label="Nawigacja">
-      <a href="/activate/" class="activation-link">Aktywuj zegarek <span aria-hidden="true">↗</span></a>
+      <a href="/" class="site-nav-link" aria-current="page">Panel admina</a>
+      <a href="/activate/" class="site-nav-link">Aktywacja zegarka</a>
       <span id="adminUser" class="user-label" hidden></span>
       <button id="logoutBtn" class="button-quiet" type="button" hidden>Wyloguj</button>
     </nav>
@@ -27,7 +28,7 @@
       <div class="login-card">
         <span class="eyebrow">DOSTĘP ADMINISTRATORA</span>
         <h1>Zarządzaj<br>swoim kasynem.</h1>
-        <p class="muted">Zaloguj się, aby zmieniać losowość gier, uruchamiać wydarzenia i dodawać plakaty.</p>
+        <p class="muted">Zarządzaj grami, wydarzeniami i kontami graczy w jednym miejscu.</p>
         <form id="loginForm">
           <label for="adminUsername">Login administratora</label>
           <input id="adminUsername" name="username" autocomplete="username" value="admin" maxlength="64" required>
@@ -43,10 +44,17 @@
 
     <div id="adminPanel" class="dashboard" hidden>
       <div class="page-heading">
-        <div><span class="eyebrow">CENTRUM STEROWANIA</span><h1>Ustawienia serwera</h1></div>
+        <div><span class="eyebrow">CENTRUM STEROWANIA</span><h1 id="panelTitle">Ustawienia serwera</h1></div>
         <span class="session-badge"><i aria-hidden="true"></i> Sesja administratora</span>
       </div>
       <p id="globalStatus" class="form-status" role="status" aria-live="polite"></p>
+
+      <div class="panel-tabs" role="tablist" aria-label="Zarządzanie serwerem">
+        <button id="settingsTab" type="button" role="tab" aria-selected="true" aria-controls="settingsPanel" tabindex="0">Gry i wydarzenia</button>
+        <button id="usersTab" type="button" role="tab" aria-selected="false" aria-controls="usersPanel" tabindex="-1">Użytkownicy</button>
+      </div>
+
+      <div id="settingsPanel" role="tabpanel" aria-labelledby="settingsTab">
 
       <section class="event-summary" aria-label="Stan wydarzenia">
         <div class="event-state-icon" aria-hidden="true">✦</div>
@@ -108,9 +116,58 @@
           </form>
         </section>
       </div>
+      </div>
+
+      <section id="usersPanel" role="tabpanel" aria-labelledby="usersTab" hidden>
+        <div class="card users-card">
+          <div class="section-heading"><div><span class="eyebrow">KONTA GRACZY</span><h2>Użytkownicy</h2></div><button id="refreshUsersBtn" class="button-outline" type="button">Odśwież listę</button></div>
+          <form id="userSearchForm" class="search-form" role="search">
+            <label class="sr-only" for="userSearch">Szukaj po loginie</label>
+            <input id="userSearch" type="search" maxlength="32" placeholder="Szukaj po loginie…" autocomplete="off">
+            <button class="button-gold" type="submit">Szukaj</button>
+          </form>
+          <p id="usersStatus" class="form-status" role="status" aria-live="polite"></p>
+          <div class="table-scroll"><table class="data-table"><caption class="sr-only">Lista kont graczy</caption><thead><tr><th scope="col">Login</th><th scope="col">Saldo</th><th scope="col">Rundy</th><th scope="col">Ostatnia gra</th><th scope="col"><span class="sr-only">Szczegóły</span></th></tr></thead><tbody id="usersBody"></tbody></table></div>
+          <div class="pagination"><span id="usersPageLabel" class="muted"></span><div><button id="usersPrev" class="button-quiet" type="button" disabled>← Poprzednia</button><button id="usersNext" class="button-quiet" type="button" disabled>Następna →</button></div></div>
+        </div>
+
+        <section id="userDetail" class="user-detail" aria-labelledby="selectedUserTitle" hidden>
+          <div class="section-heading detail-heading"><div><span class="eyebrow">PROFIL GRACZA</span><h2 id="selectedUserTitle" tabindex="-1"></h2></div><button id="closeUserBtn" class="button-quiet" type="button">Zamknij profil ×</button></div>
+          <p id="userStatus" class="form-status" role="status" aria-live="polite"></p>
+          <div id="userStats" class="stats-grid"></div>
+          <div class="profile-grid">
+            <section class="card">
+              <h3>Dane konta</h3>
+              <p class="muted">Nowy login zachowa saldo i historię. Zmiana loginu lub hasła wyloguje zegarki — gracz połączy je ponownie.</p>
+              <form id="userEditForm">
+                <label for="editNick">Login gracza</label><input id="editNick" maxlength="16" autocomplete="off" required>
+                <p class="field-hint">Nowy login: 3–12 znaków A–Z, 0–9 lub podkreślenie.</p>
+                <label for="editPassword">Nowe hasło</label><input id="editPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Pozostaw puste, aby zachować hasło">
+                <button id="saveUserBtn" class="button-gold full-width" type="submit">Zapisz dane konta</button>
+              </form>
+            </section>
+            <section class="card danger-card">
+              <h3>Usuń konto</h3>
+              <p class="muted">Trwale usuwa użytkownika, saldo, historię gier i połączenia z zegarkami. Tej operacji nie można cofnąć.</p>
+              <form id="deleteUserForm">
+                <label for="deleteNick">Aby potwierdzić, wpisz dokładny login: <strong id="deleteNickLabel"></strong></label>
+                <input id="deleteNick" autocomplete="off" placeholder="Login usuwanego konta" required>
+                <button id="deleteUserBtn" class="button-danger full-width" type="submit" disabled>Usuń użytkownika i konto</button>
+              </form>
+            </section>
+          </div>
+          <section class="card history-card">
+            <div class="section-heading"><div><span class="eyebrow">AKTYWNOŚĆ GRACZA</span><h3>Historia gier</h3></div><button id="refreshHistoryBtn" class="button-outline" type="button">Odśwież historię</button></div>
+            <p class="field-hint">Historia zawiera rundy zapisane na serwerze. Gry treningowe nie są zapisywane.</p>
+            <p id="historyStatus" class="form-status" role="status" aria-live="polite"></p>
+            <div class="table-scroll"><table class="data-table"><caption class="sr-only">Historia gier wybranego użytkownika</caption><thead><tr><th scope="col">Data</th><th scope="col">Gra</th><th scope="col">Stawka</th><th scope="col">Wypłata</th><th scope="col">Wynik</th></tr></thead><tbody id="historyBody"></tbody></table></div>
+            <div class="pagination"><span id="historyPageLabel" class="muted"></span><div><button id="historyPrev" class="button-quiet" type="button" disabled>← Poprzednia</button><button id="historyNext" class="button-quiet" type="button" disabled>Następna →</button></div></div>
+          </section>
+        </section>
+      </section>
     </div>
   </main>
-  <footer class="site-footer">CASINO WEAR <span>•</span> Zarządzanie serwerem</footer>
+  <footer class="site-footer">CASINO WEAR <span>•</span> Panel serwera i aktywacja zegarka</footer>
   <noscript><p class="session-notice">Włącz JavaScript, aby korzystać z panelu.</p></noscript>
 </body>
 </html>

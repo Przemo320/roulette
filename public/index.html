@@ -4,41 +4,48 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Casino Wear — Aktywacja zegarka</title>
+  <link rel="stylesheet" href="/assets/site.css">
   <link rel="stylesheet" href="/activate/style.css">
   <script src="/activate/activate.js" defer></script>
 </head>
-<body>
-  <div class="layout">
-    <main class="card">
-      <span class="eyebrow">CASINO WEAR · AUTORYZACJA ZEGARKA</span>
-      <h1>Połącz swój zegarek</h1>
-      <p>Wpisz 8-znakowy kod widoczny na ekranie zegarka, aby zalogować go na swoje konto.</p>
+<body class="activation-page">
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Casino Wear — strona główna"><span class="brand-icon" aria-hidden="true">CW</span><span>CASINO WEAR<small>PANEL SERWERA</small></span></a>
+    <nav aria-label="Nawigacja"><a href="/" class="site-nav-link">Panel admina</a><a href="/activate/" class="site-nav-link" aria-current="page">Aktywacja zegarka</a></nav>
+  </header>
+  <main class="activation-layout">
+    <section class="activation-intro">
+      <span class="eyebrow">TWOJE KONTO · TWÓJ ZEGAREK</span>
+      <h1>Połącz zegarek.<br> <span>Wróć do gry.</span></h1>
+      <p class="muted">Zaloguj swoje konto lub utwórz nowe i zatwierdź kod z ekranu zegarka.</p>
+      <ol class="activation-steps">
+        <li><span>01</span><div><strong>Otwórz aplikację</strong><p>Na zegarku wybierz połączenie z kontem.</p></div></li>
+        <li><span>02</span><div><strong>Wpisz kod</strong><p>Przepisz 8 znaków do formularza obok.</p></div></li>
+        <li><span>03</span><div><strong>Zatwierdź zegarek</strong><p>Po połączeniu możesz wrócić do menu gier.</p></div></li>
+      </ol>
+      <a class="activation-back" href="/">← Przejdź do panelu administratora</a>
+    </section>
+    <section class="card activation-card" aria-labelledby="activationTitle">
+      <div class="section-number">AKTYWACJA</div>
+      <h2 id="activationTitle">Połącz swój zegarek</h2>
+      <p class="muted">Kod znajdziesz na ekranie aplikacji Casino Wear.</p>
       <form id="form">
-        <label>Kod z zegarka
-          <input name="code" placeholder="ABCD-EFGH" autocomplete="off" maxlength="9" required>
-        </label>
-        <label>Nick gracza (3–12 znaków)
-          <input name="nick" autocomplete="username" maxlength="12" required>
-        </label>
-        <label>Hasło (min. 10 znaków dla nowego konta)
-          <input name="password" type="password" autocomplete="current-password" maxlength="128" required>
-        </label>
-        <label>Operacja
-          <select name="mode">
-            <option value="login">Zaloguj istniejące konto</option>
-            <option value="register">Utwórz nowe konto</option>
-          </select>
-        </label>
-        <details>
-          <summary>Zmiana hasła istniejącego konta</summary>
-          <label>Nowe hasło (opcjonalnie)
-            <input name="newPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128">
-          </label>
-        </details>
-        <button type="submit">Zatwierdź mój zegarek</button>
-        <p id="status" role="status" aria-live="polite"></p>
+        <label for="watchCode">Kod z zegarka</label>
+        <input id="watchCode" name="code" class="watch-code" placeholder="ABCD-EFGH" autocomplete="off" maxlength="9" required>
+        <label for="playerMode">Operacja</label>
+        <select id="playerMode" name="mode"><option value="login">Zaloguj istniejące konto</option><option value="register">Utwórz nowe konto</option></select>
+        <label for="playerNick">Nick gracza (3–12 znaków)</label>
+        <input id="playerNick" name="nick" autocomplete="username" maxlength="12" required>
+        <label for="playerPassword">Hasło</label>
+        <input id="playerPassword" name="password" type="password" autocomplete="current-password" maxlength="128" required>
+        <p class="field-hint">Dla nowego konta: co najmniej 10 znaków.</p>
+        <details class="password-details"><summary>Zmiana hasła istniejącego konta</summary><label for="playerNewPassword">Nowe hasło (opcjonalnie)</label><input id="playerNewPassword" name="newPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128"></details>
+        <button type="submit" class="button-gold full-width">Zatwierdź mój zegarek <span aria-hidden="true">→</span></button>
+        <p id="status" class="form-status" role="status" aria-live="polite"></p>
       </form>
-    </main>
-  </div>
+    </section>
+  </main>
+  <footer class="site-footer">CASINO WEAR <span>•</span> Panel serwera i aktywacja zegarka</footer>
+  <noscript><p class="session-notice">Włącz JavaScript, aby połączyć zegarek.</p></noscript>
 </body>
 </html>

@@ -35,6 +35,21 @@ CREATE TABLE IF NOT EXISTS casino_requests (
  PRIMARY KEY(nick,request_id)
 );
 
+-- Migrate existing databases as well: renames preserve ownership and history;
+-- deleting an account revokes its devices/sessions and removes its records.
+ALTER TABLE casino_sessions DROP CONSTRAINT IF EXISTS casino_sessions_nick_fkey;
+ALTER TABLE casino_sessions ADD CONSTRAINT casino_sessions_nick_fkey
+ FOREIGN KEY(nick) REFERENCES players(nick) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE casino_devices DROP CONSTRAINT IF EXISTS casino_devices_nick_fkey;
+ALTER TABLE casino_devices ADD CONSTRAINT casino_devices_nick_fkey
+ FOREIGN KEY(nick) REFERENCES players(nick) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE casino_rounds DROP CONSTRAINT IF EXISTS casino_rounds_nick_fkey;
+ALTER TABLE casino_rounds ADD CONSTRAINT casino_rounds_nick_fkey
+ FOREIGN KEY(nick) REFERENCES players(nick) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE casino_requests DROP CONSTRAINT IF EXISTS casino_requests_nick_fkey;
+ALTER TABLE casino_requests ADD CONSTRAINT casino_requests_nick_fkey
+ FOREIGN KEY(nick) REFERENCES players(nick) ON UPDATE CASCADE ON DELETE CASCADE;
+
 CREATE TABLE IF NOT EXISTS casino_config (
  id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
  rng_settings JSONB NOT NULL DEFAULT '{"rouletteBias":0,"slotsBias":0,"diceBias":0,"cardsBias":0,"specialBias":0}'::jsonb,

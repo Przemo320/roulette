@@ -8,6 +8,7 @@ form.addEventListener('submit', async (event) => {
   const button = form.querySelector('button');
   button.disabled = true;
   status.textContent = 'Łączenie…';
+  status.classList.remove('error');
   try {
     const data = Object.fromEntries(new FormData(form));
     const response = await fetch('/api/device/approve', {
@@ -21,6 +22,7 @@ form.addEventListener('submit', async (event) => {
     status.textContent = json.message;
   } catch (error) {
     status.textContent = error.message;
+    status.classList.add('error');
   } finally {
     button.disabled = false;
   }

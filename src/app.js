@@ -7,6 +7,7 @@ const path = require('node:path');
 const games = require('./games');
 const passwords = require('./passwords');
 const { createAdminAuth } = require('./admin-auth');
+const { createAdminUsers } = require('./admin-users');
 const { validatePoster } = require('./posters');
 const { fail } = games;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -128,16 +129,18 @@ function createApp(pool, options = {}) {
   const publicDirectory = path.join(__dirname, '../public');
   app.get('/', (_, res) => res.set('Cache-Control', 'no-store').sendFile(path.join(publicDirectory, 'admin/admin.html')));
   app.use('/admin-assets', express.static(path.join(publicDirectory, 'admin'), { index: false }));
+  app.get('/assets/site.css', (_, res) => res.sendFile(path.join(publicDirectory, 'admin/admin.css')));
   app.get('/health', async (_, res) => {
     await pool.query('SELECT 1');
     res.json({ ok: true, version: 2 });
   });
-  app.get(['/activate', '/activate/'], (_, res) => res.sendFile(path.join(publicDirectory, 'index.html')));
+  app.get(['/activate', '/activate/'], (_, res) => res.set('Cache-Control', 'no-store').sendFile(path.join(publicDirectory, 'index.html')));
   app.get('/activate/activate.js', (_, res) => res.sendFile(path.join(publicDirectory, 'activate.js')));
   app.get('/activate/style.css', (_, res) => res.sendFile(path.join(publicDirectory, 'style.css')));
 
   const admin = createAdminAuth(pool, { publicUrl, adminUsername: options.adminUsername, adminPassword: options.adminPassword });
   app.use('/api/admin', admin.router);
+  app.use('/api/admin/users', createAdminUsers({ pool, transaction, ...admin }));
 
   app.post(['/sync', '/login'], (_, res) =>
     res.status(410).json({ ok: false, error: 'Zainstaluj Casino Wear v2. Stary protokół jest wyłączony.' })
