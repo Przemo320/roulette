@@ -1,4 +1,5 @@
 'use strict';
+const fcm = require('./fcm');
 const express = require('express');
 const helmet = require('helmet');
 const { rateLimit } = require('express-rate-limit');
@@ -96,6 +97,10 @@ async function active(c, p) {
 function createApp(pool, options = {}) {
   const app = express();
   const publicUrl = (options.publicUrl || process.env.PUBLIC_URL || 'http://localhost:3000').replace(/\/$/, '');
+  fcm.initFcm();
+  getServerConfig(pool).then(cfg => {
+    if (cfg.event.active) fcm.scheduleEventTimers(cfg.event);
+  }).catch(() => {});
   app.disable('x-powered-by');
   app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 0));
   app.use(helmet({
@@ -209,6 +214,26 @@ function createApp(pool, options = {}) {
       await c.query('UPDATE casino_config SET rng_settings=$1,event_data=$2,updated_at=NOW() WHERE id=1', [nextRng, nextEvent]);
       return getServerConfig(c, true);
     });
+
+    // Jeżeli administrator zmienił lub uruchomił/wyłączył ewent — wyślij powiadomienie Push do wszystkich
+    if (Object.hasOwn(body, 'event')) {
+      if (body.event?.clear === true) {
+        fcm.clearEventTimers();
+        fcm.sendEventBroadcast(
+          '🏁 Ewent został zakończony',
+          'Aktualne wydarzenie specjalne zostało wyłączone przez administratora.',
+          { type: 'event_cleared' }
+        );
+      } else if (saved.event && saved.event.active) {
+        fcm.scheduleEventTimers(saved.event);
+        fcm.sendEventBroadcast(
+          `★ Nowy Ewent: ${saved.event.title}!`,
+          `${saved.event.description ? saved.event.description + ' · ' : ''}Wygrane ×${saved.event.winMultiplier} oraz bonus ${saved.event.dailyBonus} $!`,
+          { type: 'event_started' }
+        );
+      }
+    }
+
     res.set('Cache-Control', 'no-store').json({ ok: true, message: 'Zmiany zostały zapisane.', ...saved });
   }
 
