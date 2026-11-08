@@ -136,7 +136,7 @@ function createApp(pool, options = {}) {
   app.get('/ping', (_, res) => res.type('text/plain').send('OK'));
   const publicDirectory = path.join(__dirname, '../public');
   
-  app.use(express.static(publicDirectory));
+  app.use(express.static(publicDirectory, { index: false }));
   app.get('/', (_, res) => res.set('Cache-Control', 'no-store').sendFile(path.join(publicDirectory, 'admin/admin.html')));
   app.use('/admin-assets', express.static(path.join(publicDirectory, 'admin'), { index: false }));
   app.get('/assets/site.css', (_, res) => res.sendFile(path.join(publicDirectory, 'admin/admin.css')));
