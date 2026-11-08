@@ -104,7 +104,6 @@ function createApp(pool, options = {}) {
     if (cfg.event.active) fcm.scheduleEventTimers(cfg.event);
   }).catch(() => {});
   
-  app.use(express.static(path.join(__dirname, 'public')));
   app.disable('x-powered-by');
   app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 0));
   app.use(helmet({
@@ -136,6 +135,8 @@ function createApp(pool, options = {}) {
 
   app.get('/ping', (_, res) => res.type('text/plain').send('OK'));
   const publicDirectory = path.join(__dirname, '../public');
+  
+  app.use(express.static(publicDirectory));
   app.get('/', (_, res) => res.set('Cache-Control', 'no-store').sendFile(path.join(publicDirectory, 'admin/admin.html')));
   app.use('/admin-assets', express.static(path.join(publicDirectory, 'admin'), { index: false }));
   app.get('/assets/site.css', (_, res) => res.sendFile(path.join(publicDirectory, 'admin/admin.css')));
