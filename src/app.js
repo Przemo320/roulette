@@ -13,6 +13,8 @@ const { validatePoster } = require('./posters');
 const { fail } = games;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+
+
 function today() {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -101,6 +103,8 @@ function createApp(pool, options = {}) {
   getServerConfig(pool).then(cfg => {
     if (cfg.event.active) fcm.scheduleEventTimers(cfg.event);
   }).catch(() => {});
+  
+  app.use(express.static(path.join(__dirname, 'public')));
   app.disable('x-powered-by');
   app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 0));
   app.use(helmet({
